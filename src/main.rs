@@ -11,8 +11,7 @@ struct OpenQuote {
 
 impl OpenQuote {
     fn new(quote_name: &str) -> Result<Self> {
-        // In prod this would be /sys/kernel/config/tsm/report
-        let mut quote_path = PathBuf::from("./temp");
+        let mut quote_path = PathBuf::from("/sys/kernel/config/tsm/report");
         quote_path.push(quote_name);
         create_dir(quote_path.clone())?;
         Ok(Self { path: quote_path })
