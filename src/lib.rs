@@ -5,6 +5,14 @@ use std::{
     path::PathBuf,
 };
 
+/// Create a quote with given input
+pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>> {
+    let quote_name = bytes_to_hex(&input);
+    let quote = OpenQuote::new(&quote_name)?;
+    quote.write_input(input)?;
+    quote.read_output()
+}
+
 /// Represents a pending quote
 pub struct OpenQuote {
     path: PathBuf,
@@ -37,4 +45,12 @@ impl OpenQuote {
         outblob_file.read_to_end(&mut output)?;
         Ok(output)
     }
+}
+
+fn bytes_to_hex(input: &[u8]) -> String {
+    input
+        .iter()
+        .map(|b| format!("{:02x}", b).to_string())
+        .collect::<Vec<String>>()
+        .join("")
 }
