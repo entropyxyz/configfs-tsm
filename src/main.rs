@@ -16,9 +16,14 @@
 use configfs_tsm::OpenQuote;
 
 fn main() {
+    // If an argument is given it is used as the quote name
     let quote_name = std::env::args().nth(1).unwrap_or("test-quote".to_string());
-    let quote = OpenQuote::new(&quote_name).unwrap();
+    let mut quote = OpenQuote::new(&quote_name).unwrap();
+
+    // Give 64 null bytes as input data
     quote.write_input([0; 64]).unwrap();
+
     let output = quote.read_output().unwrap();
     println!("Quote: {:?}", output);
+    println!("Generation: {}", quote.read_generation().unwrap());
 }
