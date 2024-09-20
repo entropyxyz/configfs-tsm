@@ -75,7 +75,8 @@ impl OpenQuote {
     pub fn read_generation(&self) -> Result<u32> {
         let mut generation_path = self.path.clone();
         generation_path.push("generation");
-        let current_generation = read_to_string(generation_path)?;
+        let mut current_generation = read_to_string(generation_path)?;
+        trim_newline(&mut current_generation);
         Ok(current_generation.parse().unwrap())
     }
 
@@ -92,4 +93,13 @@ fn bytes_to_hex(input: &[u8]) -> String {
         .map(|b| format!("{:02x}", b).to_string())
         .collect::<Vec<String>>()
         .join("")
+}
+
+fn trim_newline(input: &mut String) {
+    if input.ends_with('\n') {
+        input.pop();
+        if input.ends_with('\r') {
+            input.pop();
+        }
+    }
 }
