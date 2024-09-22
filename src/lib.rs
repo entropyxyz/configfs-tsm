@@ -48,12 +48,13 @@ impl OpenQuote {
 
     /// Write input data to quote
     pub fn write_input(&mut self, input: [u8; 64]) -> Result<()> {
+        self.update_generation()?;
         let mut inblob_path = self.path.clone();
         inblob_path.push("inblob");
         let mut inblob_file = File::create(inblob_path)?;
         inblob_file.write_all(&input)?;
 
-        self.update_generation()?;
+        self.expected_generation += 1;
         Ok(())
     }
 
