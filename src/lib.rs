@@ -15,13 +15,18 @@
 //! For explanation see https://www.kernel.org/doc/Documentation/ABI/testing/configfs-tsm
 
 use std::{
+    fmt::{self, Display},
     fs::{create_dir, read_to_string, File},
-    io::{Read, Result, Write},
+    io::{Read, Write},
+    num::ParseIntError,
     path::PathBuf,
 };
 
+/// The path of the configfs-tsm interface
+const CONFIGFS_TSM_PATH: &str = "/sys/kernel/config/tsm/report";
+
 /// Create a quote with given input
-pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>> {
+pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
     let quote_name = bytes_to_hex(&input);
     let mut quote = OpenQuote::new(&quote_name)?;
     quote.write_input(input)?;
@@ -30,15 +35,20 @@ pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>> {
 
 /// Represents a pending quote
 pub struct OpenQuote {
+    /// The path of the quote files
     path: PathBuf,
+    /// What generation number we expect the quote to have when reading.
+    /// This is used to detect conflicts when another process modifies the quote.
     expected_generation: u32,
 }
 
 impl OpenQuote {
     /// Create a new open quote
-    pub fn new(quote_name: &str) -> Result<Self> {
-        let mut quote_path = PathBuf::from("/sys/kernel/config/tsm/report");
+    pub fn new(quote_name: &str) -> Result<Self, QuoteGenerationError> {
+        let mut quote_path = PathBuf::from(CONFIGFS_TSM_PATH);
         quote_path.push(quote_name);
+        // If a quote with the same name has already been made, this will give the error
+        // ErrorKind::AlreadyExists
         create_dir(quote_path.clone())?;
         Ok(Self {
             path: quote_path,
@@ -47,7 +57,7 @@ impl OpenQuote {
     }
 
     /// Write input data to quote
-    pub fn write_input(&mut self, input: [u8; 64]) -> Result<()> {
+    pub fn write_input(&mut self, input: [u8; 64]) -> Result<(), QuoteGenerationError> {
         self.update_generation()?;
         let mut inblob_path = self.path.clone();
         inblob_path.push("inblob");
@@ -59,7 +69,7 @@ impl OpenQuote {
     }
 
     /// Generate the quote
-    pub fn read_output(&self) -> Result<Vec<u8>> {
+    pub fn read_output(&self) -> Result<Vec<u8>, QuoteGenerationError> {
         let mut outblob_path = self.path.clone();
         outblob_path.push("outblob");
         let mut outblob_file = File::open(outblob_path)?;
@@ -68,25 +78,25 @@ impl OpenQuote {
 
         let actual = self.read_generation()?;
         if self.expected_generation != actual {
-            panic!(
-                "Wrong generation number - possible conflict. Expected: {} Actual {}",
-                self.expected_generation, actual
-            );
+            return Err(QuoteGenerationError::Generation(
+                self.expected_generation,
+                actual,
+            ));
         }
         Ok(output)
     }
 
     /// Read the current generation number
-    pub fn read_generation(&self) -> Result<u32> {
+    pub fn read_generation(&self) -> Result<u32, QuoteGenerationError> {
         let mut generation_path = self.path.clone();
         generation_path.push("generation");
         let mut current_generation = read_to_string(generation_path)?;
         trim_newline(&mut current_generation);
-        Ok(current_generation.parse().unwrap())
+        Ok(current_generation.parse()?)
     }
 
     /// Read the current generation number
-    fn update_generation(&mut self) -> Result<()> {
+    fn update_generation(&mut self) -> Result<(), QuoteGenerationError> {
         self.expected_generation = self.read_generation()?;
         Ok(())
     }
@@ -100,11 +110,47 @@ fn bytes_to_hex(input: &[u8]) -> String {
         .join("")
 }
 
+/// Remove a trailing newline character from a given string if present
 fn trim_newline(input: &mut String) {
     if input.ends_with('\n') {
         input.pop();
         if input.ends_with('\r') {
             input.pop();
         }
+    }
+}
+
+/// An error when parsing a quote
+#[derive(Debug)]
+pub enum QuoteGenerationError {
+    Generation(u32, u32),
+    IO(std::io::Error),
+    ParseInt,
+}
+
+impl Display for QuoteGenerationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QuoteGenerationError::Generation(expected, actual) => f.write_str(&format!(
+                "Wrong generation number - possible conflict. Expected: {} Actual: {}",
+                expected, actual
+            )),
+            QuoteGenerationError::IO(error) => f.write_str(&error.to_string()),
+            QuoteGenerationError::ParseInt => {
+                f.write_str("Could not parse integer when reading generation value")
+            }
+        }
+    }
+}
+
+impl From<std::io::Error> for QuoteGenerationError {
+    fn from(error: std::io::Error) -> QuoteGenerationError {
+        QuoteGenerationError::IO(error)
+    }
+}
+
+impl From<ParseIntError> for QuoteGenerationError {
+    fn from(_: ParseIntError) -> QuoteGenerationError {
+        QuoteGenerationError::ParseInt
     }
 }
