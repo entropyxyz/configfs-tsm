@@ -65,8 +65,12 @@ impl OpenQuote {
         let mut output = Vec::new();
         outblob_file.read_to_end(&mut output)?;
 
-        if self.expected_generation != self.read_generation()? {
-            panic!("Wrong generation number - possible conflict");
+        let actual = self.read_generation()?;
+        if self.expected_generation != actual {
+            panic!(
+                "Wrong generation number - possible conflict. Expected: {} Actual {}",
+                self.expected_generation, actual
+            );
         }
         Ok(output)
     }
