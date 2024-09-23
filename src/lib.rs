@@ -56,11 +56,12 @@ impl OpenQuote {
         let mut quote_path = PathBuf::from(CONFIGFS_TSM_PATH);
         quote_path.push(quote_name);
 
-        // If a quote with the same name has already been made, we ignore the error as we can still
-        // re-use the quote
         if let Err(error) = create_dir(quote_path.clone()) {
             match error.kind() {
+                // If a quote with the same name has already been made, we ignore the error as we can still
+                // re-use the quote
                 ErrorKind::AlreadyExists => {}
+                ErrorKind::NotFound => return Err(QuoteGenerationError::CannotFindTsmDir),
                 _ => return Err(QuoteGenerationError::IO(error)),
             }
         }
@@ -154,6 +155,7 @@ pub enum QuoteGenerationError {
     IO(std::io::Error),
     ParseInt,
     BadProvider(String),
+    CannotFindTsmDir,
 }
 
 impl Display for QuoteGenerationError {
@@ -171,6 +173,9 @@ impl Display for QuoteGenerationError {
                 "Quote has provider which is not allowed: {}",
                 provider
             )),
+            QuoteGenerationError::CannotFindTsmDir => f.write_str(
+                "Cannot find configfs-tsm directory - maybe your hardware does not support it",
+            ),
         }
     }
 }
