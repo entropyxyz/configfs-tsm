@@ -36,7 +36,7 @@ pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
 pub fn create_tdx_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
     let quote_name = bytes_to_hex(&input);
     let mut quote = OpenQuote::new(&quote_name)?;
-    quote.check_provider(vec!["tdx_guest".to_string()])?;
+    quote.check_provider(vec!["tdx_guest"])?;
     quote.write_input(input)?;
     quote.read_output()
 }
@@ -104,12 +104,12 @@ impl OpenQuote {
     }
 
     /// Check that the provider matches given accepted values
-    pub fn check_provider(&self, accepted_values: Vec<String>) -> Result<(), QuoteGenerationError> {
+    pub fn check_provider(&self, accepted_values: Vec<&str>) -> Result<(), QuoteGenerationError> {
         let mut provider_path = self.path.clone();
         provider_path.push("provider");
         let mut provider = read_to_string(provider_path)?;
         trim_newline(&mut provider);
-        if !accepted_values.contains(&provider) {
+        if !accepted_values.contains(&provider.as_str()) {
             return Err(QuoteGenerationError::BadProvider(provider));
         }
         Ok(())

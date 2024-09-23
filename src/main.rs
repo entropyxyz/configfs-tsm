@@ -21,7 +21,7 @@ fn main() {
     let mut quote = OpenQuote::new(&quote_name).unwrap();
 
     // Assert that the provider must be TDX
-    quote.check_provider(vec!["tdx_guest".to_string()]).unwrap();
+    quote.check_provider(vec!["tdx_guest"]).unwrap();
 
     // Give 64 null bytes as input data
     quote.write_input([0; 64]).unwrap();
