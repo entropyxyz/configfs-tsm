@@ -33,6 +33,7 @@ pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
     quote.read_output()
 }
 
+/// Create a quote with given input, ensuring that the provider is tdx_guest
 pub fn create_tdx_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
     let quote_name = bytes_to_hex(&input);
     let mut quote = OpenQuote::new(&quote_name)?;
