@@ -33,6 +33,14 @@ pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
     quote.read_output()
 }
 
+pub fn create_tdx_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
+    let quote_name = bytes_to_hex(&input);
+    let mut quote = OpenQuote::new(&quote_name)?;
+    quote.check_provider(vec!["tdx_guest".to_string()])?;
+    quote.write_input(input)?;
+    quote.read_output()
+}
+
 /// Represents a pending quote
 pub struct OpenQuote {
     /// The path of the quote files
@@ -95,7 +103,19 @@ impl OpenQuote {
         Ok(current_generation.parse()?)
     }
 
-    /// Read the current generation number
+    /// Check that the provider matches given accepted values
+    pub fn check_provider(&self, accepted_values: Vec<String>) -> Result<(), QuoteGenerationError> {
+        let mut provider_path = self.path.clone();
+        provider_path.push("provider");
+        let mut provider = read_to_string(provider_path)?;
+        trim_newline(&mut provider);
+        if !accepted_values.contains(&provider) {
+            return Err(QuoteGenerationError::BadProvider(provider));
+        }
+        Ok(())
+    }
+
+    /// Update the expected generation number
     fn update_generation(&mut self) -> Result<(), QuoteGenerationError> {
         self.expected_generation = self.read_generation()?;
         Ok(())
@@ -126,6 +146,7 @@ pub enum QuoteGenerationError {
     Generation(u32, u32),
     IO(std::io::Error),
     ParseInt,
+    BadProvider(String),
 }
 
 impl Display for QuoteGenerationError {
@@ -139,6 +160,10 @@ impl Display for QuoteGenerationError {
             QuoteGenerationError::ParseInt => {
                 f.write_str("Could not parse integer when reading generation value")
             }
+            QuoteGenerationError::BadProvider(provider) => f.write_str(&format!(
+                "Quote has provider which is not allowed: {}",
+                provider
+            )),
         }
     }
 }
