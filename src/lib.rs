@@ -17,7 +17,7 @@
 use std::{
     fmt::{self, Display},
     fs::{create_dir, read_to_string, File},
-    io::{Read, Write},
+    io::{ErrorKind, Read, Write},
     num::ParseIntError,
     path::PathBuf,
 };
@@ -55,9 +55,16 @@ impl OpenQuote {
     pub fn new(quote_name: &str) -> Result<Self, QuoteGenerationError> {
         let mut quote_path = PathBuf::from(CONFIGFS_TSM_PATH);
         quote_path.push(quote_name);
-        // If a quote with the same name has already been made, this will give the error
-        // ErrorKind::AlreadyExists
-        create_dir(quote_path.clone())?;
+
+        // If a quote with the same name has already been made, we ignore the error as we can still
+        // re-use the quote
+        if let Err(error) = create_dir(quote_path.clone()) {
+            match error.kind() {
+                ErrorKind::AlreadyExists => {}
+                _ => return Err(QuoteGenerationError::IO(error)),
+            }
+        }
+
         Ok(Self {
             path: quote_path,
             expected_generation: 0,
