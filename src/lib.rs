@@ -17,6 +17,7 @@
 use std::{
     fmt::{self, Display},
     fs::{create_dir, read_to_string, File},
+    hash::{DefaultHasher, Hash, Hasher},
     io::{ErrorKind, Read, Write},
     num::ParseIntError,
     path::PathBuf,
@@ -25,21 +26,30 @@ use std::{
 /// The path of the configfs-tsm interface
 const CONFIGFS_TSM_PATH: &str = "/sys/kernel/config/tsm/report";
 
-/// Create a quote with given input
+/// Create a quote with given input, using the input data as quote directory name
 pub fn create_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
-    let quote_name = bytes_to_hex(&input);
+    let quote_name = create_quote_name(&input);
     let mut quote = OpenQuote::new(&quote_name)?;
     quote.write_input(input)?;
     quote.read_output()
 }
 
-/// Create a quote with given input, ensuring that the provider is tdx_guest
-pub fn create_tdx_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
-    let quote_name = bytes_to_hex(&input);
+/// Same as create_quote, but check that the provider (the TEE platform) matches one of a given set
+/// of values
+pub fn create_quote_with_providers(
+    input: [u8; 64],
+    accepted_providers: Vec<&str>,
+) -> Result<Vec<u8>, QuoteGenerationError> {
+    let quote_name = create_quote_name(&input);
     let mut quote = OpenQuote::new(&quote_name)?;
-    quote.check_provider(vec!["tdx_guest"])?;
+    quote.check_provider(accepted_providers)?;
     quote.write_input(input)?;
     quote.read_output()
+}
+
+/// Convenience function for creating a quote and checking the provider is tdx_guest
+pub fn create_tdx_quote(input: [u8; 64]) -> Result<Vec<u8>, QuoteGenerationError> {
+    create_quote_with_providers(input, vec!["tdx_guest"])
 }
 
 /// Represents a pending quote
@@ -129,6 +139,14 @@ impl OpenQuote {
         self.expected_generation = self.read_generation()?;
         Ok(())
     }
+}
+
+/// Derive a name for the quote directory from the input data by hashing and encoding as hex
+fn create_quote_name(input: &[u8]) -> String {
+    let mut s = DefaultHasher::new();
+    input.hash(&mut s);
+    let hash_bytes = s.finish().to_le_bytes();
+    bytes_to_hex(&hash_bytes)
 }
 
 fn bytes_to_hex(input: &[u8]) -> String {
