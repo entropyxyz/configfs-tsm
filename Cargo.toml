@@ -1,5 +1,6 @@
 [package]
 name = "configfs-tsm"
+description = "Generate quotes for remote attestation on confidential computing platforms using Linux's configfs-tsm filesystem interface."
 version = "0.0.1"
 edition = "2021"
 authors   =['Entropy Cryptography <engineering@entropy.xyz>']
