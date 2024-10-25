@@ -119,6 +119,10 @@ impl OpenQuote {
                 actual,
             ));
         }
+
+        if output.is_empty() {
+            return Err(QuoteGenerationError::EmptyQuote);
+        }
         Ok(output)
     }
 
@@ -184,6 +188,7 @@ pub enum QuoteGenerationError {
     ParseInt,
     BadProvider(String),
     CannotFindTsmDir,
+    EmptyQuote,
 }
 
 impl Display for QuoteGenerationError {
@@ -204,6 +209,7 @@ impl Display for QuoteGenerationError {
             QuoteGenerationError::CannotFindTsmDir => f.write_str(
                 "Cannot find configfs-tsm directory - maybe your hardware does not support it",
             ),
+            QuoteGenerationError::EmptyQuote => f.write_str("Empty quote. This could be an authorization issue with the quote generation socket."),
         }
     }
 }
