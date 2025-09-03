@@ -24,6 +24,7 @@
 //!
 //! Warning: This crate is in early stages of development and has not been audited
 use std::{
+    error::Error,
     fmt::{self, Display},
     fs::{create_dir, read_to_string, File},
     hash::{DefaultHasher, Hash, Hasher},
@@ -210,6 +211,15 @@ impl Display for QuoteGenerationError {
                 "Cannot find configfs-tsm directory - maybe your hardware does not support it",
             ),
             QuoteGenerationError::EmptyQuote => f.write_str("Empty quote. This could be an authorization issue with the quote generation socket."),
+        }
+    }
+}
+
+impl Error for QuoteGenerationError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::IO(e) => Some(e),
+            _ => None,
         }
     }
 }
